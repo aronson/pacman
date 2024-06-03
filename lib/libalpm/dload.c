@@ -1145,10 +1145,10 @@ static void prepare_resumable_downloads(alpm_list_t *payloads, const char *local
 				payload->mtime_existing_file = deststat.st_mtime;
 			}
 			FREE(dest);
-                }
+		}
 		if(!payload->tempfile_name) {
 			continue;
-                }
+		}
 		const char *filename = mbasename(payload->tempfile_name);
 		char *src = _alpm_get_fullpath(localpath, filename, "");
 		struct stat st;
