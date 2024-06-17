@@ -607,7 +607,7 @@ static int curl_check_finished_download(alpm_handle_t *handle, CURLM *curlm, CUR
 	curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &timecond);
 	curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective_url);
 
-	/* Let's check if client requested downloading accompanion *.sig file */
+	/* Let's check if client requested downloading a companion *.sig file */
 	if(!payload->signature && payload->download_signature && curlerr == CURLE_OK && payload->respcode < 400) {
 		struct dload_payload *sig = NULL;
 		char *url = payload->fileurl;
@@ -1093,6 +1093,25 @@ static int move_file(const char *filepath, const char *directory)
 	return 0;
 }
 
+static int unlink_and_maybe_move_file(const char *filepath, const char *directory, const bool do_move)
+{
+	ASSERT(filepath != NULL, return -1);
+	ASSERT(directory != NULL, return -1);
+	int ret = finalize_download_file(filepath);
+	if(ret != 0) {
+		return ret;
+	}
+	const char *filename = mbasename(filepath);
+	char *dest = _alpm_get_fullpath(directory, filename, "");
+	unlink(dest);
+	if(do_move && rename(filepath, dest)) {
+		FREE(dest);
+		return -1;
+	}
+	FREE(dest);
+	return 0;
+}
+
 static int finalize_download_locations(alpm_list_t *payloads, const char *localpath)
 {
 	ASSERT(payloads != NULL, return -1);
@@ -1107,18 +1126,21 @@ static int finalize_download_locations(alpm_list_t *payloads, const char *localp
 		if(payload->destfile_name) {
 			int ret = move_file(payload->destfile_name, localpath);
 
-			if(ret == -1) {
-				returnvalue = -1;
+			const char sig_suffix[] = ".sig";
+			char *sig_filename = NULL;
+			size_t sig_filename_len = strlen(payload->destfile_name) + sizeof(sig_suffix);
+			MALLOC(sig_filename, sig_filename_len, continue);
+			snprintf(sig_filename, sig_filename_len, "%s%s", payload->destfile_name, sig_suffix);
+
+			if(unlink_and_maybe_move_file(sig_filename, localpath, payload->download_signature) == -1 &&
+					payload->download_signature && !payload->signature_optional) {
+				ret = -1;
 			}
 
-			if (payload->download_signature) {
-				const char sig_suffix[] = ".sig";
-				char *sig_filename = NULL;
-				size_t sig_filename_len = strlen(payload->destfile_name) + sizeof(sig_suffix);
-				MALLOC(sig_filename, sig_filename_len, continue);
-				snprintf(sig_filename, sig_filename_len, "%s%s", payload->destfile_name, sig_suffix);
-				move_file(sig_filename, localpath);
-				FREE(sig_filename);
+			FREE(sig_filename);
+
+			if(ret == -1) {
+				returnvalue = -1;
 			}
 		}
 	}
