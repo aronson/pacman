@@ -122,12 +122,17 @@ else
   error('unhandled crypto value @0@'.format(want_crypto))
 endif
 
+libseccomp = dependency('libseccomp',
+                        static : get_option('buildstatic'),
+                        required : false)
+conf.set('HAVE_LIBSECCOMP', libseccomp.found())
 foreach header : [
     'linux/landlock.h',
     'mntent.h',
     'sys/mnttab.h',
     'sys/mount.h',
     'sys/param.h',
+    'sys/prctl.h',
     'sys/statvfs.h',
     'sys/types.h',
     'sys/ucred.h',
@@ -327,7 +332,7 @@ libcommon = static_library(
   gnu_symbol_visibility : 'hidden',
   install : false)
 
-alpm_deps = [crypto_provider, libarchive, libcurl, libintl, gpgme]
+alpm_deps = [crypto_provider, libarchive, libcurl, libintl, libseccomp, gpgme]
 
 libalpm_a = static_library(
   'alpm_objlib',

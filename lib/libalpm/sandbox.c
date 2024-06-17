@@ -17,9 +17,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif /* HAVE_SYS_PRCTL_H */
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -27,9 +32,10 @@
 #include "log.h"
 #include "sandbox.h"
 #include "sandbox_fs.h"
+#include "sandbox_syscalls.h"
 #include "util.h"
 
-int SYMEXPORT alpm_sandbox_setup_child(alpm_handle_t *handle, const char* sandboxuser, const char* sandbox_path)
+int SYMEXPORT alpm_sandbox_setup_child(alpm_handle_t *handle, const char* sandboxuser, const char* sandbox_path, bool restrict_syscalls)
 {
 	struct passwd const *pw = NULL;
 
@@ -38,6 +44,13 @@ int SYMEXPORT alpm_sandbox_setup_child(alpm_handle_t *handle, const char* sandbo
 	ASSERT((pw = getpwnam(sandboxuser)), return -1);
 	if(sandbox_path != NULL && !handle->disable_sandbox) {
 		_alpm_sandbox_fs_restrict_writes_to(handle, sandbox_path);
+	}
+#if defined(HAVE_SYS_PRCTL_H) && defined(PR_SET_NO_NEW_PRIVS)
+	/* make sure that we cannot gain more privileges later, failure is fine */
+	prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+#endif /* HAVE_SYS_PRCTL && PR_SET_NO_NEW_PRIVS */
+	if(restrict_syscalls && !handle->disable_sandbox) {
+		_alpm_sandbox_syscalls_filter(handle);
 	}
 	ASSERT(setgid(pw->pw_gid) == 0, return -1);
 	ASSERT(setgroups(0, NULL) == 0, return -1);
