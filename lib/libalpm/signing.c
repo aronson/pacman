@@ -1,7 +1,7 @@
 /*
  *  signing.c
  *
- *  Copyright (c) 2008-2021 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2008-2024 Pacman Development Team <pacman-dev@lists.archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -253,9 +253,10 @@ error:
  * This requires GPGME to call the gpg binary.
  * @param handle the context handle
  * @param email the email address of the key to import
+ * @param fpr the fingerprint key ID to look up (or NULL)
  * @return 0 on success, -1 on error
  */
-static int key_import_wkd(alpm_handle_t *handle, const char *email)
+static int key_import_wkd(alpm_handle_t *handle, const char *email, const char *fpr)
 {
 	gpgme_error_t gpg_err;
 	gpgme_ctx_t ctx = {0};
@@ -274,7 +275,12 @@ static int key_import_wkd(alpm_handle_t *handle, const char *email)
 	_alpm_log(handle, ALPM_LOG_DEBUG, _("looking up key %s using WKD\n"), email);
 	gpg_err = gpgme_get_key(ctx, email, &key, 0);
 	if(gpg_err_code(gpg_err) == GPG_ERR_NO_ERROR) {
-		ret = 0;
+		/* check if correct key was imported via WKD */
+		if(fpr && _alpm_key_in_keychain(handle, fpr)) {
+			ret = 0;
+		} else {
+			_alpm_log(handle, ALPM_LOG_DEBUG, "key lookup failed: WKD imported wrong fingerprint\n");
+		}
 	}
 	gpgme_key_unref(key);
 
@@ -350,17 +356,21 @@ static int key_search_keyserver(alpm_handle_t *handle, const char *fpr,
 	pgpkey->data = key;
 	if(key->subkeys->fpr) {
 		pgpkey->fingerprint = key->subkeys->fpr;
-	} else if(key->subkeys->keyid) {
+	} else {
 		pgpkey->fingerprint = key->subkeys->keyid;
 	}
-	pgpkey->uid = key->uids->uid;
-	pgpkey->name = key->uids->name;
-	pgpkey->email = key->uids->email;
+
+	/* we are probably going to fail importing, but continue anyway... */
+	if(key->uids != NULL) {
+		pgpkey->uid = key->uids->uid;
+		pgpkey->name = key->uids->name;
+		pgpkey->email = key->uids->email;
+	}
+
 	pgpkey->created = key->subkeys->timestamp;
 	pgpkey->expires = key->subkeys->expires;
 	pgpkey->length = key->subkeys->length;
 	pgpkey->revoked = key->subkeys->revoked;
-
 	/* Initialize with '?', this is overwritten unless public key
 	 * algorithm is unknown. */
 	pgpkey->pubkey_algo = '?';
@@ -504,23 +514,19 @@ int _alpm_key_import(alpm_handle_t *handle, const char *uid, const char *fpr)
 		return -1;
 	}
 
-	STRDUP(fetch_key.uid, uid, return -1);
-	STRDUP(fetch_key.fingerprint, fpr, free(fetch_key.uid); return -1);
 
 	alpm_question_import_key_t question = {
 				.type = ALPM_QUESTION_IMPORT_KEY,
 				.import = 0,
-				.key = &fetch_key
+				.uid = uid,
+				.fingerprint = fpr
 			};
 	QUESTION(handle, &question);
-
-	free(fetch_key.uid);
-	free(fetch_key.fingerprint);
 
 	if(question.import) {
 		/* Try to import the key from a WKD first */
 		if(email_from_uid(uid, &email) == 0) {
-			ret = key_import_wkd(handle, email);
+			ret = key_import_wkd(handle, email, fpr);
 			free(email);
 		}
 
@@ -533,7 +539,7 @@ int _alpm_key_import(alpm_handle_t *handle, const char *uid, const char *fpr)
 					ret = 0;
 				} else {
 					_alpm_log(handle, ALPM_LOG_ERROR,
-							_("key \"%s\" could not be imported\n"), fetch_key.uid);
+							_("key \"%s\" could not be imported\n"), fpr);
 				}
 			} else {
 				_alpm_log(handle, ALPM_LOG_ERROR,
@@ -1038,7 +1044,7 @@ int SYMEXPORT alpm_siglist_cleanup(alpm_siglist_t *siglist)
 static size_t length_check(size_t length, size_t position, size_t a,
 		alpm_handle_t *handle, const char *identifier)
 {
-	if( a == 0 || length - position <= a) {
+	if( a == 0 || position > length || length - position <= a) {
 		_alpm_log(handle, ALPM_LOG_ERROR,
 				_("%s: signature format error\n"), identifier);
 		return -1;

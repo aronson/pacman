@@ -1,5 +1,5 @@
 #  Copyright (c) 2006 by Aurelien Foret <orelien@chez.com>
-#  Copyright (c) 2006-2021 Pacman Development Team <pacman-dev@archlinux.org>
+#  Copyright (c) 2006-2024 Pacman Development Team <pacman-dev@lists.archlinux.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,7 @@ class pmtest(object):
         if not treename in self.db:
             self.db[treename] = pmdb.pmdb(treename, self.root)
         self.db[treename].pkgs.append(pkg)
+        return pkg
 
     def addpkg(self, pkg):
         self.localpkgs.append(pkg)
@@ -240,17 +241,19 @@ class pmtest(object):
 
         cmd = []
         if os.geteuid() != 0:
-            fakeroot = util.which("fakeroot")
-            if not fakeroot:
-                tap.diag("WARNING: fakeroot not found!")
-            else:
-                cmd.append("fakeroot")
-
+            # fakechroot must be called before fakeroot due to potential
+            # potential interactions when wrapping the same C functions
             fakechroot = util.which("fakechroot")
             if not fakechroot:
                 tap.diag("WARNING: fakechroot not found!")
             else:
                 cmd.append("fakechroot")
+
+            fakeroot = util.which("fakeroot")
+            if not fakeroot:
+                tap.diag("WARNING: fakeroot not found!")
+            else:
+                cmd.append("fakeroot")
 
         if pacman["gdb"]:
             cmd.extend(["libtool", "execute", "gdb", "--args"])

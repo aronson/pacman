@@ -1,7 +1,7 @@
 /*
  *  remove.c
  *
- *  Copyright (c) 2006-2021 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2024 Pacman Development Team <pacman-dev@lists.archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -332,7 +332,7 @@ static int can_remove_file(alpm_handle_t *handle, const alpm_file_t *file)
 	/* If we fail write permissions due to a read-only filesystem, abort.
 	 * Assume all other possible failures are covered somewhere else */
 	if(_alpm_access(handle, NULL, filepath, W_OK) == -1) {
-		if(errno != EACCES && errno != ETXTBSY && access(filepath, F_OK) == 0) {
+		if(errno != EACCES && errno != ETXTBSY && _alpm_access(handle, NULL, filepath, F_OK) == 0) {
 			/* only return failure if the file ACTUALLY exists and we can't write to
 			 * it - ignore "chmod -w" simple permission failures */
 			_alpm_log(handle, ALPM_LOG_ERROR, _("cannot remove file '%s': %s\n"),
@@ -420,7 +420,9 @@ static void shift_pacsave(alpm_handle_t *handle, const char *file)
 
 cleanup:
 	free(dirname);
-	closedir(dir);
+	if(dir != NULL) {
+		closedir(dir);
+	}
 }
 
 
