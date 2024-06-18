@@ -1086,7 +1086,6 @@ static void cl_to_log(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-	uid_t myuid = getuid();
 
 	console_cursor_hide();
 	install_segv_handler();
@@ -1128,12 +1127,6 @@ int main(int argc, char *argv[])
 	ret = parseargs(argc, argv);
 	if(ret != 0) {
 		cleanup(ret);
-	}
-
-	/* check if we have sufficient permission for the requested operation */
-	if(myuid > 0 && needs_root()) {
-		pm_printf(ALPM_LOG_ERROR, _("you cannot perform this operation unless you are root.\n"));
-		cleanup(EXIT_FAILURE);
 	}
 
 	/* we support reading targets from stdin if a cmdline parameter is '-' */

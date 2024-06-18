@@ -278,9 +278,9 @@ db_write_entry() {
 
 	# compute checksums
 	msg2 "$(gettext "Computing checksums...")"
-	md5sum=$(md5sum "$pkgfile")
+	md5sum=$(md5 -r "$pkgfile")
 	md5sum=${md5sum%% *}
-	sha256sum=$(sha256sum "$pkgfile")
+	sha256sum=$(shasum -a 256 "$pkgfile")
 	sha256sum=${sha256sum%% *}
 
 	# remove an existing entry if it exists, ignore failures

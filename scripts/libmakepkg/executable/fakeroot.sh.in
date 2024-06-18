@@ -28,10 +28,5 @@ source "$LIBRARY/util/message.sh"
 executable_functions+=('executable_fakeroot')
 
 executable_fakeroot() {
-	if (( SOURCEONLY || BUILDPKG )); then
-		if ! type -p fakeroot >/dev/null; then
-			error "$(gettext "Cannot find the %s binary.")" "fakeroot"
-			return 1
-		fi
-	fi
+	return 0
 }

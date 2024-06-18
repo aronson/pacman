@@ -29,9 +29,9 @@ lint_config_functions+=('lint_source_date_epoch')
 
 
 lint_source_date_epoch() {
-	if [[ $SOURCE_DATE_EPOCH = *[^[:digit:]]* ]]; then
+	if [[ $SOURCE_DATE_EPOCH = *[^[:digit:]\-T:]* ]]; then
 		error "$(gettext "%s contains invalid characters: %s")" \
-			"\$SOURCE_DATE_EPOCH" "${SOURCE_DATE_EPOCH//[[:digit:]]}"
+			"\$SOURCE_DATE_EPOCH" "${SOURCE_DATE_EPOCH//[[:digit:]\-T:]}"
 		return 1
 	fi
 }
