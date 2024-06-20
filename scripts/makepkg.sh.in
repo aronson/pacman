@@ -612,13 +612,13 @@ create_package() {
 	[[ -f $pkg_file.sig ]] && rm -f "$pkg_file.sig"
 
 	# ensure all elements of the package have the same mtime
-	find . -exec touch -h -d $SOURCE_DATE_EPOCH {} +
+	find . -exec touch -h {} +
 
 	msg2 "$(gettext "Generating .MTREE file...")"
 	list_package_files | LANG=C bsdtar -cnf - --format=mtree \
 		--options='!all,use-set,type,uid,gid,mode,time,size,sha256,link' \
 		--null --files-from - --exclude .MTREE | gzip -c -f -n > .MTREE
-	touch -d $SOURCE_DATE_EPOCH .MTREE
+	touch .MTREE
 
 	msg2 "$(gettext "Compressing package...")"
 	# TODO: Maybe this can be set globally for robustness
@@ -1055,7 +1055,7 @@ unset var
 PACKAGER=${PACKAGER:-"Unknown Packager"}
 
 # set pacman command if not already defined
-PACMAN=${PACMAN:-pacman}
+PACMAN=wf-pacman
 # save full path to command as PATH may change when sourcing /etc/profile
 PACMAN_PATH=$(type -P $PACMAN)
 
@@ -1353,7 +1353,7 @@ if (( !REPKG )); then
 		if (( REPRODUCIBLE )); then
 			# We have activated reproducible builds, so unify source times before
 			# building
-			find "$srcdir" -exec touch -h -d $SOURCE_DATE_EPOCH {} +
+			find "$srcdir" -exec touch -h {} +
 		fi
 	fi
 
